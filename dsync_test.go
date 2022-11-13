@@ -15,7 +15,8 @@ const BASEPATH string = "resources/migrations"
 
 func TestPostgresqlDataSource(t *testing.T) {
 	dsn := "postgres://postgres:toor@localhost:5433/test-db"
-	var migrator dsync.Migrator
+	migrator := dsync.Migrator{OutOfOrder: true}
+	
 	ds, err := postgresql.New(dsn, &dsync.Config{
 		FileSystem: e,
 		Basepath:   BASEPATH,

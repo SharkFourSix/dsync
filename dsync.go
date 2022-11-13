@@ -13,9 +13,11 @@ import (
 type verification_error int
 
 const (
-	err_migration_conflict verification_error = iota
-	err_migration_match
-	err_migration_missing
+	err_migration_checksum_mismatch verification_error = iota
+	err_migration_valid
+	err_new_migration
+	err_migration_conflict
+	err_migration_out_of_order
 )
 
 type Migration struct {
@@ -31,6 +33,7 @@ type Migration struct {
 type MigrationInfo struct {
 	TableName  string
 	Migrations []Migration
+	Version    int64
 }
 
 type DataSource interface {
@@ -82,18 +85,31 @@ func ValidateConfig(cfg *Config) error {
 }
 
 type Migrator struct {
+	OutOfOrder bool
 }
 
-func verifyMigration(m *Migration, migrations []Migration) (verification_error, *Migration) {
+func (migrator Migrator) verifyFsMigration(m *Migration, migrations []Migration, currentVersion int64) (verification_error, *Migration) {
 	for _, migration := range migrations {
 		if strings.EqualFold(m.File, migration.File) {
 			if m.Checksum == migration.Checksum {
-				return err_migration_match, &migration
+				return err_migration_valid, &migration
 			}
-			return err_migration_conflict, &migration
+			return err_migration_checksum_mismatch, &migration
 		}
 	}
-	return err_migration_missing, nil
+
+	if m.Version == currentVersion {
+		return err_migration_conflict, nil
+	}
+	if m.Version < currentVersion {
+		if migrator.OutOfOrder {
+			return err_new_migration, nil
+		} else {
+			return err_migration_out_of_order, nil
+		}
+	}
+	// m.Version > currentVersion
+	return err_new_migration, nil
 }
 
 func (migrator Migrator) Migrate(ds DataSource) error {
@@ -111,6 +127,14 @@ func (migrator Migrator) Migrate(ds DataSource) error {
 	info, err = ds.GetMigrationInfo()
 	if err != nil {
 		return err
+	}
+
+	if len(info.Migrations) > 0 && info.Version == 0 {
+		return errors.Errorf(
+			"current migration version %d does not correspond to number of migrations (%d).",
+			info.Version,
+			len(info.Migrations),
+		)
 	}
 
 	cfs, err = ds.GetChangeSetFileSystem()
@@ -147,16 +171,21 @@ func (migrator Migrator) Migrate(ds DataSource) error {
 			if err != nil {
 				return err
 			}
-			e, dbm := verifyMigration(m, info.Migrations)
+			e, dbm := migrator.verifyFsMigration(m, info.Migrations, info.Version)
 			switch e {
-			case err_migration_conflict:
-				return errors.Errorf("migration file hash conflict. expected %d, found %d", dbm.Checksum, m.Checksum)
-			case err_migration_match:
+			case err_migration_checksum_mismatch:
+				return errors.Errorf("migration file checksum conflict. expected %d, found %d", dbm.Checksum, m.Checksum)
+			case err_migration_valid:
 				// log.info("verified version %s", m.Name)
-			case err_migration_missing:
+			case err_new_migration:
 				if err := ds.ApplyMigration(m); err != nil {
 					return errors.Wrap(err, "migration failed")
 				}
+			case err_migration_conflict:
+				return errors.Errorf("migration version %d already applied", m.Version)
+			case err_migration_out_of_order:
+				return errors.Errorf("migration %s is behind current version %d. Enable out of order to migrate this script", m.File, info.Version)
+
 			}
 		}
 	}

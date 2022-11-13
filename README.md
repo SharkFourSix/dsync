@@ -59,7 +59,7 @@ func DoMigrate(){
 - [x] A migration script will not be included if it does not end with **.sql** extension
 - [x] Migrations are only recorded in the database when successfull
 - [x] Custom migration table name to allow different migrations for difference DB clients.
-- [x] Out of order setting
+- [x] Supports out of order migrations
 
 #### Database sources
 
@@ -68,3 +68,9 @@ func DoMigrate(){
 | Postgres | github.com/SharkFourSix/dsync/sources/postgresql | Done   |
 | MySQL    | N/A                                              | TBD    |
 | SQLite   | N/A                                              | TBD    |
+
+### TODO
+
+- [ ] Add logging and configuration
+- [ ] Add MySQL data source
+- [ ] Add SQLite data source

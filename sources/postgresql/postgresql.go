@@ -32,7 +32,7 @@ func New(dsn string, cfg *dsync.Config) (dsync.DataSource, error) {
 	ds := &pgDataSource{
 		tablename:  cfg.TableName,
 		basepath:   cfg.Basepath,
-		setFS: cfg.FileSystem,
+		setFS:      cfg.FileSystem,
 		successful: false,
 	}
 
@@ -64,7 +64,7 @@ func New(dsn string, cfg *dsync.Config) (dsync.DataSource, error) {
 
 	sb.WriteString(`SELECT Id, Name, File, Version, CreatedAt, Checksum FROM "`)
 	sb.WriteString(cfg.TableName)
-	sb.WriteString(`"`)
+	sb.WriteString(`" ORDER BY Version ASC`)
 	ds.selectionQuery = sb.String()
 	sb.Reset()
 
@@ -115,6 +115,7 @@ func (p pgDataSource) GetMigrationInfo() (*dsync.MigrationInfo, error) {
 		and table_name = $1 
 	)	
 	`
+	var currentVersion int64
 	var exists bool
 	if err := p.db.QueryRow(q, p.tablename).Scan(&exists); err != nil {
 		return nil, err
@@ -134,7 +135,11 @@ func (p pgDataSource) GetMigrationInfo() (*dsync.MigrationInfo, error) {
 			}
 			migrations = append(migrations, migration)
 		}
-		return &dsync.MigrationInfo{TableName: p.tablename, Migrations: migrations}, nil
+		l := len(migrations)
+		if l > 0 {
+			currentVersion = migrations[l-1].Version
+		}
+		return &dsync.MigrationInfo{TableName: p.tablename, Migrations: migrations, Version: currentVersion}, nil
 	} else {
 		_, err := p.db.Exec(p.createTableQuery)
 		if err != nil {
