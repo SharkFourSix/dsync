@@ -1,0 +1,1 @@
+create table if not exists user_test (id serial not null, _name text not null);
