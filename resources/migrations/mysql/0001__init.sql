@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS dsync_test(`id` int not null auto_increment, `foo` varchar(100), primary key(`id`));

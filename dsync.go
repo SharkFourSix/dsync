@@ -20,6 +20,8 @@ const (
 	err_migration_out_of_order
 )
 
+const DEFAULT_TABLE_NAME = "dsync_migration_info"
+
 type Migration struct {
 	Id        uint32
 	Name      string
@@ -34,6 +36,20 @@ type MigrationInfo struct {
 	TableName  string
 	Migrations []Migration
 	Version    int64
+}
+
+type MigrationError struct {
+	Err       error
+	Migration *Migration
+}
+
+func (e MigrationError) Error() string {
+	var builder strings.Builder
+
+	builder.WriteString(e.Migration.File)
+	builder.WriteString(": ")
+	builder.WriteString(e.Err.Error())
+	return builder.String()
 }
 
 type DataSource interface {
@@ -65,16 +81,23 @@ type Config struct {
 	TableName  string
 }
 
-func (cgf *Config) validate() error {
-	if cgf.FileSystem == nil {
+func (cfg *Config) validate() error {
+	if cfg.FileSystem == nil {
 		return errors.New("missing migration changeset source")
 	}
 
-	if len(strings.TrimSpace(cgf.Basepath)) == 0 {
+	if len(strings.TrimSpace(cfg.Basepath)) == 0 {
 		return errors.New("empty basepath")
 	}
 
 	return nil
+}
+
+func (cfg Config) TableNameOrDefault() string {
+	if len(strings.TrimSpace(cfg.TableName)) > 0 {
+		return cfg.TableName
+	}
+	return DEFAULT_TABLE_NAME
 }
 
 func ValidateConfig(cfg *Config) error {
@@ -174,7 +197,7 @@ func (migrator Migrator) Migrate(ds DataSource) error {
 			e, dbm := migrator.verifyFsMigration(m, info.Migrations, info.Version)
 			switch e {
 			case err_migration_checksum_mismatch:
-				return errors.Errorf("migration file checksum conflict. expected %d, found %d", dbm.Checksum, m.Checksum)
+				return errors.Errorf("%s: migration file checksum conflict. expected %d, found %d", m.File, dbm.Checksum, m.Checksum)
 			case err_migration_valid:
 				// log.info("verified version %s", m.Name)
 			case err_new_migration:
@@ -182,9 +205,9 @@ func (migrator Migrator) Migrate(ds DataSource) error {
 					return errors.Wrap(err, "migration failed")
 				}
 			case err_migration_conflict:
-				return errors.Errorf("migration version %d already applied", m.Version)
+				return errors.Errorf("%s: migration version %d already applied", m.File, m.Version)
 			case err_migration_out_of_order:
-				return errors.Errorf("migration %s is behind current version %d. Enable out of order to migrate this script", m.File, info.Version)
+				return errors.Errorf("%s: version %d is behind current version %d. Enable out of order to migrate this script", m.File, m.Version, info.Version)
 
 			}
 		}

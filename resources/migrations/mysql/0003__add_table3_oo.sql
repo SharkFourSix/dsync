@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS table3(`id` int not null auto_increment, `foo` varchar(100), primary key(`id`));
