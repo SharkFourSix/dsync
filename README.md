@@ -1,4 +1,4 @@
-# dsync
+# dsync [![Go Report Card](https://goreportcard.com/badge/github.com/SharkFourSix/dsync)](https://goreportcard.com/report/github.com/SharkFourSix/dsync)
 
 ### Getting Started
 
