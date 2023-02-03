@@ -66,11 +66,11 @@ func DoMigrate(){
 | Database | Data source                                      | Status |
 |----------|--------------------------------------------------|--------|
 | Postgres | github.com/SharkFourSix/dsync/sources/postgresql | Done   |
-| MySQL    | N/A                                              | TBD    |
+| MySQL    | github.com/SharkFourSix/dsync/sources/mysql      | Done   |
 | SQLite   | N/A                                              | TBD    |
 
 ### TODO
 
 - [ ] Add logging and configuration
-- [ ] Add MySQL data source
+- [x] Add MySQL data source
 - [ ] Add SQLite data source

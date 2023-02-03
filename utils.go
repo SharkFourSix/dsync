@@ -30,7 +30,7 @@ func (pe parser_error) Error() string {
 
 // ParseMigration Parse migration information from file name
 func ParseMigration(filename string) (*Migration, error) {
-	
+
 	var pos = 0
 	var migration Migration
 	var separators_count = 0
