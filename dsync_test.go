@@ -1,12 +1,15 @@
 package dsync_test
 
 import (
+	"database/sql"
 	"embed"
+	"os"
 	"testing"
 
 	"github.com/SharkFourSix/dsync"
 	"github.com/SharkFourSix/dsync/sources/mysql"
 	"github.com/SharkFourSix/dsync/sources/postgresql"
+	"github.com/SharkFourSix/dsync/sources/sqlite"
 )
 
 //go:embed resources/migrations
@@ -41,6 +44,44 @@ func TestMySqlDataSource(t *testing.T) {
 	ds, err := mysql.New(dsn, &dsync.Config{
 		FileSystem: e,
 		Basepath:   "resources/migrations/mysql",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	err = migrator.Migrate(ds)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+}
+
+func TestSqliteDataSource(t *testing.T) {
+	dsn := "file:test/test.db?cache=shared&mode=rw"
+	migrator := dsync.Migrator{OutOfOrder: true}
+
+	err := os.MkdirAll("./test", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fd, err := os.Create("test/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fd.Close()
+
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	ds, err := sqlite.New(dsn, &dsync.Config{
+		FileSystem: e,
+		Basepath:   "resources/migrations/sqlite",
 	})
 
 	if err != nil {

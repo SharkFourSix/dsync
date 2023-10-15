@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS dsync_sqlite_test (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    foo TEXT
+);

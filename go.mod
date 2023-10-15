@@ -6,4 +6,7 @@ require github.com/pkg/errors v0.9.1
 
 require github.com/lib/pq v1.10.7
 
-require github.com/go-sql-driver/mysql v1.6.0
+require (
+	github.com/go-sql-driver/mysql v1.6.0
+	github.com/mattn/go-sqlite3 v1.14.17
+)
