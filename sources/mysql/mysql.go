@@ -190,3 +190,7 @@ func (p mysqlDataSource) logMigration(m *dsync.Migration) error {
 	}
 	return nil
 }
+
+func (ds mysqlDataSource) Handle() *sql.DB {
+	return ds.db
+}

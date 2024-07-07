@@ -1,6 +1,7 @@
 package dsync
 
 import (
+	"database/sql"
 	"io/fs"
 	"path/filepath"
 	"sort"
@@ -73,6 +74,9 @@ type DataSource interface {
 
 	// EndTransaction EndTransaction Commit or rollback the active transaction
 	EndTransaction()
+
+	// Return the underlying database handle
+	Handle() *sql.DB
 }
 
 type Config struct {

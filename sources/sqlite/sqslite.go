@@ -191,3 +191,7 @@ func (p sqliteDataSource) logMigration(m *dsync.Migration) error {
 	}
 	return nil
 }
+
+func (ds sqliteDataSource) Handle() *sql.DB {
+	return ds.db
+}
