@@ -197,3 +197,7 @@ func (p pgDataSource) logMigration(m *dsync.Migration) error {
 	}
 	return nil
 }
+
+func (ds pgDataSource) Handle() *sql.DB {
+	return ds.db
+}
