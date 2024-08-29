@@ -121,7 +121,7 @@ func HashFile(_fs fs.FS, filename string) (int64, error) {
 func ExtractVersion(filename string) (version int64, err error) {
 	versionString, _, found := strings.Cut(filename, "__")
 	if !found {
-		return 0, errors.Errorf("invalid file format")
+		return 0, errors.Errorf("invalid file name format")
 	}
 	versionString = strings.TrimLeft(versionString, "0")
 	version, err = strconv.ParseInt(versionString, 10, 64)
