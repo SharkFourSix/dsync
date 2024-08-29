@@ -77,47 +77,47 @@ func New(dsn string, cfg *dsync.Config) (dsync.DataSource, error) {
 	return ds, nil
 }
 
-func (p *sqliteDataSource) BeginTransaction() error {
-	if p.tx != nil {
+func (ds *sqliteDataSource) BeginTransaction() error {
+	if ds.tx != nil {
 		return errors.New("already in transaction")
 	}
-	tx, err := p.db.Begin()
+	tx, err := ds.db.Begin()
 	if err != nil {
 		return err
 	}
-	p.tx = tx
+	ds.tx = tx
 	return nil
 }
 
-func (p *sqliteDataSource) SetTransactionSuccessful(b bool) {
-	p.successful = b
+func (ds *sqliteDataSource) SetTransactionSuccessful(b bool) {
+	ds.successful = b
 }
 
-func (p sqliteDataSource) EndTransaction() {
-	if p.successful {
-		p.tx.Commit()
+func (ds *sqliteDataSource) EndTransaction() {
+	if ds.successful {
+		ds.tx.Commit()
 	} else {
-		p.tx.Rollback()
+		ds.tx.Rollback()
 	}
 }
 
-func (p sqliteDataSource) GetChangeSetFileSystem() (fs.FS, error) {
-	return p.setFS, nil
+func (ds *sqliteDataSource) GetChangeSetFileSystem() (fs.FS, error) {
+	return ds.setFS, nil
 }
 
-func (p sqliteDataSource) GetMigrationInfo() (*dsync.MigrationInfo, error) {
+func (ds *sqliteDataSource) GetMigrationInfo() (*dsync.MigrationInfo, error) {
 	// Connect
 
 	q := `select exists(select 1 from sqlite_master where type = 'table' and name = $1)`
 	var currentVersion int64
 	var exists bool
-	if err := p.db.QueryRow(q, p.tablename).Scan(&exists); err != nil {
+	if err := ds.db.QueryRow(q, ds.tablename).Scan(&exists); err != nil {
 		return nil, err
 	}
 
 	if exists {
 		var migrations []dsync.Migration
-		r, err := p.db.Query(p.selectionQuery)
+		r, err := ds.db.Query(ds.selectionQuery)
 		if err != nil {
 			return nil, err
 		}
@@ -133,22 +133,22 @@ func (p sqliteDataSource) GetMigrationInfo() (*dsync.MigrationInfo, error) {
 		if l > 0 {
 			currentVersion = migrations[l-1].Version
 		}
-		return &dsync.MigrationInfo{TableName: p.tablename, Migrations: migrations, Version: currentVersion}, nil
+		return &dsync.MigrationInfo{TableName: ds.tablename, Migrations: migrations, Version: currentVersion}, nil
 	} else {
-		_, err := p.db.Exec(p.createTableQuery)
+		_, err := ds.db.Exec(ds.createTableQuery)
 		if err != nil {
 			return nil, err
 		}
 		return &dsync.MigrationInfo{
-			TableName: p.tablename,
+			TableName: ds.tablename,
 		}, nil
 	}
 }
 
-func (p sqliteDataSource) ApplyMigration(m *dsync.Migration) error {
+func (ds *sqliteDataSource) ApplyMigration(m *dsync.Migration) error {
 	var buf []byte
 	var sb strings.Builder
-	f, err := p.setFS.Open(filepath.Join(p.basepath, m.File))
+	f, err := ds.setFS.Open(filepath.Join(ds.basepath, m.File))
 
 	m.Success = false
 	m.CreatedAt = time.Now()
@@ -165,12 +165,12 @@ func (p sqliteDataSource) ApplyMigration(m *dsync.Migration) error {
 		if err != nil {
 			if err == io.EOF {
 				query := sb.String()
-				_, err := p.tx.Exec(query)
+				_, err := ds.tx.Exec(query)
 				if err != nil {
 					return &dsync.MigrationError{Err: err, Migration: m}
 				}
 				m.Success = true
-				return p.logMigration(m)
+				return ds.logMigration(m)
 			} else {
 				return &dsync.MigrationError{Err: err, Migration: m}
 			}
@@ -180,18 +180,18 @@ func (p sqliteDataSource) ApplyMigration(m *dsync.Migration) error {
 	}
 }
 
-func (p sqliteDataSource) GetPath() string {
-	return p.basepath
+func (ds *sqliteDataSource) GetPath() string {
+	return ds.basepath
 }
 
-func (p sqliteDataSource) logMigration(m *dsync.Migration) error {
-	_, err := p.tx.Exec(p.insertionQuery, m.Name, m.File, m.Version, m.CreatedAt, m.Checksum)
+func (ds *sqliteDataSource) logMigration(m *dsync.Migration) error {
+	_, err := ds.tx.Exec(ds.insertionQuery, m.Name, m.File, m.Version, m.CreatedAt, m.Checksum)
 	if err != nil {
 		return &dsync.MigrationError{Err: err, Migration: m}
 	}
 	return nil
 }
 
-func (ds sqliteDataSource) Handle() *sql.DB {
+func (ds *sqliteDataSource) Handle() *sql.DB {
 	return ds.db
 }

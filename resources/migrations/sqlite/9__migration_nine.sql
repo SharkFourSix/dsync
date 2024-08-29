@@ -1,0 +1,1 @@
+create table if not exists nine(id integer primary key not null);

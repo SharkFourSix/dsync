@@ -4,6 +4,7 @@ import (
 	"hash/crc32"
 	"io"
 	"io/fs"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -14,17 +15,17 @@ import (
 type state int
 
 const (
-	state_read_version state = iota
-	state_read_name
-	state_read_separators
+	stateReadVersion state = iota
+	stateReadName
+	stateReadSeparators
 )
 
-type parser_error struct {
+type parserError struct {
 	pos      int
 	filename string
 }
 
-func (pe parser_error) Error() string {
+func (pe parserError) Error() string {
 	return pe.filename + ": invalid character in migration file name at " + strconv.FormatInt(int64(pe.pos), 10)
 }
 
@@ -33,9 +34,9 @@ func ParseMigration(filename string) (*Migration, error) {
 
 	var pos = 0
 	var migration Migration
-	var separators_count = 0
+	var separatorsCount = 0
 	var builder strings.Builder
-	var _state state = state_read_version
+	var _state = stateReadVersion
 
 	reader := strings.NewReader(filename)
 
@@ -44,47 +45,47 @@ func ParseMigration(filename string) (*Migration, error) {
 		if err != nil {
 			if err == io.EOF {
 				switch _state {
-				case state_read_name:
+				case stateReadName:
 					migration.File = filename
 					migration.Name = builder.String()
 					return &migration, nil
-				case state_read_separators:
+				case stateReadSeparators:
 					fallthrough
-				case state_read_version:
-					return nil, parser_error{pos: pos, filename: filename}
+				case stateReadVersion:
+					return nil, parserError{pos: pos, filename: filename}
 				}
 			} else {
 				return nil, errors.Wrap(err, "error parsing migration file info")
 			}
 		}
 		switch _state {
-		case state_read_version:
+		case stateReadVersion:
 			if !unicode.IsDigit(r) {
 				_version, err := strconv.ParseInt(builder.String(), 10, 64)
 				if err != nil {
 					return nil, errors.Wrapf(err, "%s:%d error parsing migration file name", filename, pos)
 				}
-				_state = state_read_separators
+				_state = stateReadSeparators
 				reader.UnreadRune()
 				migration.Version = _version
 				builder.Reset()
 			} else {
 				builder.WriteRune(r)
 			}
-		case state_read_separators:
+		case stateReadSeparators:
 			if r != '_' {
-				if separators_count == 2 {
-					_state = state_read_name
+				if separatorsCount == 2 {
+					_state = stateReadName
 					reader.UnreadRune()
 				} else {
-					return nil, parser_error{pos: pos, filename: filename}
+					return nil, parserError{pos: pos, filename: filename}
 				}
-			} else if separators_count > 2 {
-				return nil, parser_error{pos: pos, filename: filename}
+			} else if separatorsCount > 2 {
+				return nil, parserError{pos: pos, filename: filename}
 			} else {
-				separators_count++
+				separatorsCount++
 			}
-		case state_read_name:
+		case stateReadName:
 			builder.WriteRune(r)
 		}
 		pos++
@@ -114,4 +115,42 @@ func HashFile(_fs fs.FS, filename string) (int64, error) {
 		}
 		h.Write(buf[:r])
 	}
+}
+
+// ExtractVersion Extract version from a migration changeset file
+func ExtractVersion(filename string) (version int64, err error) {
+	versionString, _, found := strings.Cut(filename, "__")
+	if !found {
+		return 0, errors.Errorf("invalid file name format")
+	}
+	versionString = strings.TrimLeft(versionString, "0")
+	version, err = strconv.ParseInt(versionString, 10, 64)
+	if err != nil {
+		return 0, errors.Wrapf(err, "error parsing version number %q", filename)
+	}
+	return
+}
+
+// SortDirectoryEntries Sorts the slice in place using the library's naming scheme.
+//
+// NOTE: This function should not be treated as a validation function.
+func SortDirectoryEntries(entries []fs.DirEntry) (status error) {
+	defer func() {
+		p := recover()
+		if p != nil {
+			status = p.(error)
+		}
+	}()
+	slices.SortStableFunc(entries, func(a, b fs.DirEntry) int {
+		entryAVersion, err := ExtractVersion(a.Name())
+		if err != nil {
+			panic(err)
+		}
+		entryBVersion, err := ExtractVersion(b.Name())
+		if err != nil {
+			panic(err)
+		}
+		return int(entryAVersion - entryBVersion)
+	})
+	return
 }

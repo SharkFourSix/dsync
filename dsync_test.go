@@ -3,6 +3,7 @@ package dsync_test
 import (
 	"database/sql"
 	"embed"
+	"github.com/SharkFourSix/dsync/assert"
 	"os"
 	"testing"
 
@@ -94,4 +95,40 @@ func TestSqliteDataSource(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
+}
+
+func TestParseMigration(t *testing.T) {
+	var (
+		filename = "0000001__baseline.sql"
+		mi, err  = dsync.ParseMigration(filename)
+	)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, mi.Version, int64(1), "Version extraction failed")
+}
+
+func TestSortFiles(t *testing.T) {
+
+	entries, err := e.ReadDir("resources/migrations/sqlite")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = dsync.SortDirectoryEntries(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var actual []int
+	expected := []int{1, 9, 10, 11}
+	ver := int64(0)
+	for _, entry := range entries {
+		ver, err = dsync.ExtractVersion(entry.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual = append(actual, int(ver))
+	}
+	assert.EqualSlice(t, actual, expected, "Migration files are out of order")
 }
