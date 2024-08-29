@@ -11,17 +11,17 @@ import (
 	"github.com/pkg/errors"
 )
 
-type verification_error int
+type verificationError int
 
 const (
-	err_migration_checksum_mismatch verification_error = iota
-	err_migration_valid
-	err_new_migration
-	err_migration_conflict
-	err_migration_out_of_order
+	errMigrationChecksumMismatch verificationError = iota
+	errMigrationValid
+	errNewMigration
+	errMigrationConflict
+	errMigrationOutOfOrder
 )
 
-const DEFAULT_TABLE_NAME = "dsync_migration_info"
+const DefaultTableName = "dsync_migration_info"
 
 type Migration struct {
 	Id        uint32
@@ -57,25 +57,25 @@ type DataSource interface {
 	// GetMigrationInfo Returns table name and other information
 	GetMigrationInfo() (*MigrationInfo, error)
 
-	// GetChangeSetFileSystem GetChangeSetFileSystem returns the source file system where migration changeset files are stored
+	// GetChangeSetFileSystem returns the source file system where migration changeset files are stored
 	GetChangeSetFileSystem() (fs.FS, error)
 
-	// GetPath GetPath Returns the base path within the file system where to
+	// GetPath Returns the base path within the file system where to
 	GetPath() string
 
-	// BeginTransaction BeginTransaction Start transaction
+	// BeginTransaction Start transaction
 	BeginTransaction() error
 
-	// SetTransactionSuccessful SetTransactionSuccessful notify the data source whether to commit or rollback when EndTransaction is called
+	// SetTransactionSuccessful notify the data source whether to commit or rollback when EndTransaction is called
 	SetTransactionSuccessful(s bool)
 
-	// ApplyMigration ApplyMigration Applies the given migration
+	// ApplyMigration Applies the given migration
 	ApplyMigration(migration *Migration) error
 
-	// EndTransaction EndTransaction Commit or rollback the active transaction
+	// EndTransaction Commit or rollback the active transaction
 	EndTransaction()
 
-	// Return the underlying database handle
+	// Handle Return the underlying database handle
 	Handle() *sql.DB
 }
 
@@ -97,11 +97,11 @@ func (cfg *Config) validate() error {
 	return nil
 }
 
-func (cfg Config) TableNameOrDefault() string {
+func (cfg *Config) TableNameOrDefault() string {
 	if len(strings.TrimSpace(cfg.TableName)) > 0 {
 		return cfg.TableName
 	}
-	return DEFAULT_TABLE_NAME
+	return DefaultTableName
 }
 
 func ValidateConfig(cfg *Config) error {
@@ -115,28 +115,28 @@ type Migrator struct {
 	OutOfOrder bool
 }
 
-func (migrator Migrator) verifyFsMigration(m *Migration, migrations []Migration, currentVersion int64) (verification_error, *Migration) {
+func (migrator Migrator) verifyFsMigration(m *Migration, migrations []Migration, currentVersion int64) (verificationError, *Migration) {
 	for _, migration := range migrations {
 		if strings.EqualFold(m.File, migration.File) {
 			if m.Checksum == migration.Checksum {
-				return err_migration_valid, &migration
+				return errMigrationValid, &migration
 			}
-			return err_migration_checksum_mismatch, &migration
+			return errMigrationChecksumMismatch, &migration
 		}
 	}
 
 	if m.Version == currentVersion {
-		return err_migration_conflict, nil
+		return errMigrationConflict, nil
 	}
 	if m.Version < currentVersion {
 		if migrator.OutOfOrder {
-			return err_new_migration, nil
+			return errNewMigration, nil
 		} else {
-			return err_migration_out_of_order, nil
+			return errMigrationOutOfOrder, nil
 		}
 	}
 	// m.Version > currentVersion
-	return err_new_migration, nil
+	return errNewMigration, nil
 }
 
 func (migrator Migrator) Migrate(ds DataSource) error {
@@ -182,6 +182,11 @@ func (migrator Migrator) Migrate(ds DataSource) error {
 		return errors.Wrap(err, "error reading directory entries")
 	}
 
+	err = SortDirectoryEntries(entries)
+	if err != nil {
+		return err
+	}
+
 	if err := ds.BeginTransaction(); err != nil {
 		return errors.Wrap(err, "migration failed.")
 	}
@@ -200,17 +205,17 @@ func (migrator Migrator) Migrate(ds DataSource) error {
 			}
 			e, dbm := migrator.verifyFsMigration(m, info.Migrations, info.Version)
 			switch e {
-			case err_migration_checksum_mismatch:
+			case errMigrationChecksumMismatch:
 				return errors.Errorf("%s: migration file checksum conflict. expected %d, found %d", m.File, dbm.Checksum, m.Checksum)
-			case err_migration_valid:
+			case errMigrationValid:
 				// log.info("verified version %s", m.Name)
-			case err_new_migration:
+			case errNewMigration:
 				if err := ds.ApplyMigration(m); err != nil {
 					return errors.Wrap(err, "migration failed")
 				}
-			case err_migration_conflict:
+			case errMigrationConflict:
 				return errors.Errorf("%s: migration version %d already applied", m.File, m.Version)
-			case err_migration_out_of_order:
+			case errMigrationOutOfOrder:
 				return errors.Errorf("%s: version %d is behind current version %d. Enable out of order to migrate this script", m.File, m.Version, info.Version)
 
 			}
