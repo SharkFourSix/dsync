@@ -226,3 +226,15 @@ func (migrator Migrator) Migrate(ds DataSource) error {
 
 	return nil
 }
+
+// Migrate Perform a quick migration
+func Migrate(ds DataSource, outOfOrder bool) error {
+	m := Migrator{
+		OutOfOrder: outOfOrder,
+	}
+	err := m.Migrate(ds)
+	if err != nil {
+		err = errors.Wrap(err, "database migration failed")
+	}
+	return err
+}
