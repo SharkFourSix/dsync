@@ -25,28 +25,26 @@ type mysqlDataSource struct {
 	insertionQuery   string
 }
 
-func New(dsn string, cfg *dsync.Config) (dsync.DataSource, error) {
-	var err error
+func Wrap(db *sql.DB, cfg *dsync.Config) (dsync.DataSource, error) {
+	if err := dsync.ValidateConfig(cfg); err != nil {
+		return nil, err
+	}
+	return create(db, cfg)
+}
+
+func create(db *sql.DB, cfg *dsync.Config) (dsync.DataSource, error) {
 	var sb strings.Builder
 
+	if err := db.Ping(); err != nil {
+		return nil, err
+	}
+
 	ds := &mysqlDataSource{
+		db:         db,
 		tablename:  cfg.TableNameOrDefault(),
 		basepath:   cfg.Basepath,
 		setFS:      cfg.FileSystem,
 		successful: false,
-	}
-
-	if err = dsync.ValidateConfig(cfg); err != nil {
-		return nil, err
-	}
-
-	ds.db, err = sql.Open("mysql", dsn)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := ds.db.Ping(); err != nil {
-		return nil, err
 	}
 
 	sb.WriteString("CREATE TABLE `")
@@ -75,6 +73,21 @@ func New(dsn string, cfg *dsync.Config) (dsync.DataSource, error) {
 	ds.insertionQuery = sb.String()
 
 	return ds, nil
+}
+
+func New(dsn string, cfg *dsync.Config) (dsync.DataSource, error) {
+	var err error
+
+	if err = dsync.ValidateConfig(cfg); err != nil {
+		return nil, err
+	}
+
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	return create(db, cfg)
 }
 
 func (ds *mysqlDataSource) BeginTransaction() error {
