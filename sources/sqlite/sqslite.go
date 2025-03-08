@@ -5,12 +5,14 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/SharkFourSix/dsync"
 	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type sqliteDataSource struct {
@@ -80,7 +82,17 @@ func New(dsn string, cfg *dsync.Config) (dsync.DataSource, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", dsn)
+	params, err := url.ParseQuery(dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	driverName := params.Get("driverName")
+	if driverName == "" {
+		driverName = "sqlite3"
+	}
+
+	db, err := sql.Open(driverName, dsn)
 	if err != nil {
 		return nil, err
 	}

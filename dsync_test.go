@@ -3,9 +3,10 @@ package dsync_test
 import (
 	"database/sql"
 	"embed"
-	"github.com/SharkFourSix/dsync/assert"
 	"os"
 	"testing"
+
+	"github.com/SharkFourSix/dsync/assert"
 
 	"github.com/SharkFourSix/dsync"
 	"github.com/SharkFourSix/dsync/sources/mysql"
