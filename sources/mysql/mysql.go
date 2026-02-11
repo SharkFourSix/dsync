@@ -5,7 +5,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
-	"path/filepath"
+	"path"
 	"strings"
 	"time"
 
@@ -160,7 +160,7 @@ func (ds *mysqlDataSource) GetMigrationInfo() (*dsync.MigrationInfo, error) {
 func (ds *mysqlDataSource) ApplyMigration(m *dsync.Migration) error {
 	var buf []byte
 	var sb strings.Builder
-	f, err := ds.setFS.Open(filepath.Join(ds.basepath, m.File))
+	f, err := ds.setFS.Open(path.Join(ds.basepath, m.File))
 
 	m.Success = false
 	m.CreatedAt = time.Now()
