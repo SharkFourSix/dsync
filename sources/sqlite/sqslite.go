@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"io/fs"
-	"path/filepath"
 	"path"
 	"strings"
 	"time"
