@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"io/fs"
 	"path/filepath"
+	"path"
 	"sort"
 	"strings"
 	"time"
@@ -199,7 +200,7 @@ func (migrator Migrator) Migrate(ds DataSource) error {
 			if err != nil {
 				return err
 			}
-			m.Checksum, err = HashFile(cfs, filepath.Join(basepath, entry.Name()))
+			m.Checksum, err = HashFile(cfs, path.Join(basepath, entry.Name()))
 			if err != nil {
 				return err
 			}
